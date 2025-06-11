@@ -17,8 +17,6 @@ import (
 	"go.uber.org/zap"
 )
 
-//TODO: Ajustar funcionamiento
-
 func main() {
 	cfg, err := config.New()
 	if err != nil {

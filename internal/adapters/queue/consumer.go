@@ -25,8 +25,8 @@ func New(adapter *Adapter, queueURL string, handler MessageHandler, logger *logg
 		queueURL:    queueURL,
 		handler:     handler,
 		logger:      logger,
-		maxMessages: 10, //TODO: Pasar a constante,
-		waitTime:    20, // TODO: Pasar a constante
+		maxMessages: defaultMaxMessages,
+		waitTime:    defaultWaitTime,
 	}
 }
 

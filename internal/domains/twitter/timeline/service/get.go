@@ -22,7 +22,6 @@ func (s Service) Get(ctx context.Context, userID string, limit int) (dmntimeline
 		return dmntimeline.Timeline{}, false, err
 	}
 
-	//TODO: Agregar a validaciones
 	if len(timeline.Entries) == 0 {
 		s.logger.Debug("Timeline vacía",
 			zap.String("action", actionGet),

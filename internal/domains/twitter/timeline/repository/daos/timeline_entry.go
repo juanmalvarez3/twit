@@ -18,7 +18,6 @@ type TimelineEntryDAO struct {
 func ToTimelineEntryDAO(userID string, entry dmntimeline.TimelineEntry) TimelineEntryDAO {
 	content := entry.Content
 	if content == "" || userID == "" || entry.TweetID == "" || entry.CreatedAt.IsZero() {
-		//TODO: Agregar como validaciones fuera del DAO
 		return TimelineEntryDAO{}
 	}
 

@@ -14,11 +14,9 @@ import (
 )
 
 func (r *TimelineRepository) Get(ctx context.Context, userID string, limit int) (dmntimeline.Timeline, bool, error) {
-	//TODO: Pasar a constante o generate key
-	cacheKey := "timeline:" + userID
+	cacheKey := prefixCache + userID
 	cacheData, err := r.redisClient.Get(ctx, cacheKey)
 
-	//TODO: Refactor maybe
 	if err == nil && len(cacheData) > 0 {
 		var timeline dmntimeline.Timeline
 		err = json.Unmarshal(cacheData, &timeline)

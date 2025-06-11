@@ -31,7 +31,6 @@ func (p *SQSPublisher) Publish(ctx context.Context, tweet dmntweet.Tweet, eventT
 		zap.String("queue_url", p.queueURL),
 		zap.String("tweet_id", tweet.ID))
 
-	//TODO: Pasar a constantes
 	payload := map[string]interface{}{
 		"tweet_id":   tweet.ID,
 		"user_id":    tweet.UserID,

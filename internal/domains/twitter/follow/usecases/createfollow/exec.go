@@ -17,22 +17,17 @@ func (u UseCase) CreateFollow(ctx context.Context, follow dmnfollow.Follow) erro
 		follow.CreatedAt = time.Now().UTC().Format(time.RFC3339)
 	}
 
-	//TODO: Agregar prefix a constants
-	follow.ID = "flw-" + follow.FollowerID + "-" + follow.FollowedID
 	u.logger.Info("Creando nuevo follow",
-		zap.String("follow_id", follow.ID),
 		zap.String("follower_id", follow.FollowerID),
 		zap.String("followed_id", follow.FollowedID))
 
 	if err := u.service.Create(ctx, follow); err != nil {
 		u.logger.Error("Error al persistir follow",
-			zap.String("follow_id", follow.ID),
 			zap.Error(err))
 		return err
 	}
 
 	u.logger.Info("Follow creado exitosamente",
-		zap.String("follow_id", follow.ID),
 		zap.String("follower_id", follow.FollowerID),
 		zap.String("followed_id", follow.FollowedID))
 

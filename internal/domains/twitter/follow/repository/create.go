@@ -12,6 +12,8 @@ import (
 )
 
 func (r *Repository) Create(ctx context.Context, follow dmnfollow.Follow) error {
+
+	follow.ID = dbPrefix + follow.FollowerID + "-" + follow.FollowedID
 	r.logger.Debug("Guardando follow",
 		zap.String("follow_id", follow.ID),
 		zap.String("follower_id", follow.FollowerID),
