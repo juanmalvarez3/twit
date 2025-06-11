@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  twit-api:
+    container_name: twit-api
+    build:
+      context: .
+      dockerfile: ./docker/api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - ENVIRONMENT=development
+      - LOG_LEVEL=debug
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - DYNAMODB_TWEETS_TABLE=tweets
+      - DYNAMODB_TIMELINES_TABLE=timelines
+      - DYNAMODB_FOLLOWS_TABLE=follows
+      - DYNAMODB_USERS_TABLE=users
+      - SNS_TWEETS_TOPIC=arn:aws:sns:us-east-1:000000000000:tweets
+      - SNS_FOLLOWS_TOPIC=arn:aws:sns:us-east-1:000000000000:follows
+      - SQS_ORCHESTRATE_FANOUT_QUEUE=http://localstack:4566/000000000000/orchestrate-fanout
+      - SQS_UPDATE_TIMELINE_QUEUE=http://localstack:4566/000000000000/update-timeline
+      - SQS_PROCESS_NEW_FOLLOW_QUEUE=http://localstack:4566/000000000000/process-new-follow
+      - SQS_POPULATE_CACHE_QUEUE=http://localstack:4566/000000000000/populate-cache
+      - SQS_REBUILD_TIMELINE_QUEUE=http://localstack:4566/000000000000/rebuild-timeline
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - REDIS_TIMELINE_TTL=86400
+      - CACHE_ENABLED=true
+      - CACHE_TTL=3600
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init-aws:
+        condition: service_completed_successfully
+    restart: on-failure
+  
+  twit-workers:
+    container_name: twit-workers
+    build:
+      context: .
+      dockerfile: ./docker/workers/Dockerfile
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=debug
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - DYNAMODB_TWEETS_TABLE=tweets
+      - DYNAMODB_TIMELINES_TABLE=timelines
+      - DYNAMODB_FOLLOWS_TABLE=follows
+      - DYNAMODB_USERS_TABLE=users
+      - SNS_TWEETS_TOPIC=arn:aws:sns:us-east-1:000000000000:tweets
+      - SNS_FOLLOWS_TOPIC=arn:aws:sns:us-east-1:000000000000:follows
+      - SQS_ORCHESTRATE_FANOUT_QUEUE=http://localstack:4566/000000000000/orchestrate-fanout
+      - SQS_UPDATE_TIMELINE_QUEUE=http://localstack:4566/000000000000/update-timeline
+      - SQS_PROCESS_NEW_FOLLOW_QUEUE=http://localstack:4566/000000000000/process-new-follow
+      - SQS_POPULATE_CACHE_QUEUE=http://localstack:4566/000000000000/populate-cache
+      - SQS_REBUILD_TIMELINE_QUEUE=http://localstack:4566/000000000000/rebuild-timeline
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+      - REDIS_TIMELINE_TTL=86400
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init-aws:
+        condition: service_completed_successfully
+    restart: on-failure
+
+  localstack:
+    container_name: localstack-twit
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"            # LocalStack Gateway
+      - "4510-4559:4510-4559"  # external services port range
+    environment:
+      - DEBUG=0
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - LAMBDA_EXECUTOR=local
+      - PERSISTENCE=1
+      - EAGER_SERVICE_LOADING=1
+      - SERVICES=dynamodb,sns,sqs
+      - DYNAMODB_SHARE_DB=1
+      - DYNAMODB_IN_MEMORY=1
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - STARTUP_WAIT_TIME=5
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "${LOCALSTACK_VOLUME_DIR:-./localstack}:/var/lib/localstack"
+    healthcheck:
+      test: ["CMD", "curl", "--max-time", "2", "-s", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  init-aws:
+    container_name: init-aws
+    image: alpine:latest
+    volumes:
+      - "./docker/init-aws.sh:/init-aws.sh"
+    entrypoint: /bin/sh
+    command: -c "apk add --no-cache aws-cli curl && chmod +x /init-aws.sh && /init-aws.sh"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      localstack:
+        condition: service_healthy
+    restart: "no"
+
+  redis:
+    container_name: redis-twit
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  redis-data:
