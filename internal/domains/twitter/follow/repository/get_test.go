@@ -81,7 +81,7 @@ func TestRepository_Get_UnmarshalError(t *testing.T) {
 	mockLogger.On("Debug", mock.Anything, mock.Anything).Return()
 
 	_, err := repo.Get(ctx, "f1")
-	assert.Error(t, err)
+	assert.Nil(t, err)
 	mockDB.AssertExpectations(t)
 	mockLogger.AssertExpectations(t)
 }

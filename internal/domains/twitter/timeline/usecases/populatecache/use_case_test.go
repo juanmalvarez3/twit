@@ -172,7 +172,7 @@ func TestPopulateCache_CanceledContext(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // Cancelar el contexto inmediatamente
+	cancel()
 
 	contextErr := context.Canceled
 

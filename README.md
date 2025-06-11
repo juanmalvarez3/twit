@@ -2,29 +2,118 @@
 
 Implementación de una plataforma de microblogging estilo Twitter siguiendo principios de Clean Architecture.
 
-## Ejecución rápida (Docker)
+## Guía de Instalación y Ejecución con Docker
 
-Para ejecutar todo el proyecto con un solo comando:
+### Prerequisitos
+
+- [Docker](https://www.docker.com/get-started) (20.10.0 o superior)
+- [Docker Compose](https://docs.docker.com/compose/install/) (v2.0.0 o superior)
+- Git
+
+### Paso 1: Clonar el repositorio
 
 ```bash
-# Clonar el repositorio
 git clone https://github.com/juanmalvarez3/twit.git
 cd twit
+```
 
-# Ejecutar con Docker Compose
+### Paso 2: Configuración del entorno
+
+Copia el archivo de configuración de ejemplo:
+
+```bash
+cp .env.example .env
+```
+
+> **Nota**: Por defecto, la configuración incluida está optimizada para desarrollo local con Docker.
+
+### Paso 3: Construir e iniciar los servicios
+
+```bash
+# Construir las imágenes
+docker-compose build
+
+# Iniciar todos los servicios en modo detached
 docker-compose up -d
 ```
 
-Esto iniciará:
-- API REST en http://localhost:8080
-- Servicios de workers para procesamiento asíncrono
-- LocalStack (DynamoDB, SNS, SQS) en puerto 4566
-- Redis en puerto 6379
+Este comando iniciará los siguientes servicios:
+- **API REST** en http://localhost:8080
+- **Workers** para procesamiento asíncrono
+  - orchestrate-fanout: Distribuye tweets a seguidores
+  - update-timeline: Actualiza timelines individuales
+  - process-new-follow: Procesa nuevas relaciones de seguimiento
+  - populate-cache: Prepara caché de timelines
+  - rebuild-timeline: Reconstruye timelines
+- **LocalStack** (emulador de AWS) en puerto 4566
+  - DynamoDB: Para almacenar tweets, timelines, follows y usuarios
+  - SNS: Para notificaciones
+  - SQS: Para colas de mensajes
+- **Redis** en puerto 6379 para caché de timelines
 
-Para detener todos los servicios:
+### Paso 4: Verificar que todos los servicios estén funcionando
+
 ```bash
-docker-compose down
+# Ver el estado de todos los contenedores
+docker-compose ps
+
+# Verificar logs
+docker-compose logs -f
+
+# Ver logs de un servicio específico (ej: api)
+docker-compose logs -f api
 ```
+
+### Paso 5: Realizar peticiones a la API
+
+Puedes usar curl o cualquier cliente HTTP como Postman para probar los endpoints:
+
+```bash
+# Crear un tweet
+curl -X POST http://localhost:8080/api/v1/tweets \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "user123", "content": "¡Hola mundo!"}'
+
+# Seguir a un usuario
+curl -X POST http://localhost:8080/api/v1/follows \
+  -H "Content-Type: application/json" \
+  -d '{"followerId": "user456", "followedId": "user123"}'
+
+# Obtener el timeline de un usuario
+curl http://localhost:8080/api/v1/timelines/user456
+```
+
+### Paso 6: Gestión de los servicios
+
+```bash
+# Detener todos los servicios (preservando volúmenes)
+docker-compose down
+
+# Detener y eliminar volúmenes (útil para empezar de cero)
+docker-compose down -v
+
+# Reiniciar un servicio específico
+docker-compose restart api
+
+# Ver logs en tiempo real
+docker-compose logs -f
+```
+
+### Paso 7: Purgar datos de caché (Redis)
+
+Si necesitas limpiar la caché de Redis:
+
+```bash
+docker-compose exec redis redis-cli FLUSHALL
+```
+
+### Solución de problemas comunes
+
+- **LocalStack no inicializa correctamente**: Verifica los logs con `docker-compose logs -f localstack` y asegúrate de que Docker tenga suficientes recursos asignados
+
+- **Errores de conexión**: Asegúrate de que los servicios estén en la misma red de Docker y que las variables de entorno están configuradas correctamente
+
+- **Problemas de caché**: Intenta purgar Redis como se indica en el Paso 7
 
 ## Arquitectura
 
@@ -37,13 +126,13 @@ El sistema está diseñado siguiendo los principios de Clean Architecture con lo
 
 ## API Endpoints
 
-- `POST /api/tweets`
+- `POST /api/v1/tweets`
   - Crear un nuevo tweet
-  - Body: `{"user_id": "user123", "content": "¡Hola mundo!"}`
+  - Body: `{"userId": "user123", "content": "¡Hola mundo!"}`
 
-- `POST /api/follows`
+- `POST /api/v1/follows`
   - Seguir a un usuario
-  - Body: `{"follower_id": "user123", "followed_id": "user456"}`
+  - Body: `{"followerId": "user123", "followedId": "user456"}`
 
 - `GET /api/timelines/{userID}`
   - Obtener el timeline de un usuario
@@ -55,24 +144,48 @@ El sistema está diseñado siguiendo los principios de Clean Architecture con lo
 twit/
 ├── cmd/                      # Punto de entrada de la aplicación
 │   ├── twitter/              # Servicios principales
-│   │   ├── http/             # API HTTP
-│   │   ├── sns/              # Procesadores de eventos SNS
-│   │   ├── sqs/              # Procesadores de colas SQS
-│   │   └── scheduled/        # Tareas programadas
+│       ├── http/             # API HTTP REST
+│       ├── snssqs/           # Procesadores de mensajes SNS/SQS
+│       │   ├── follows/      # Procesador de eventos de follows
+│       │   └── tweets/       # Procesador de eventos de tweets
+│       └── sqs/              # Workers para procesamiento asíncrono
+│           ├── orchestratefanout/ # Distribución de tweets a seguidores
+│           ├── populatecache/    # Población de caché de timeline
+│           ├── rebuildtimeline/  # Reconstrucción de timelines
+│           └── updatetimeline/   # Actualización de timelines
 ├── internal/                 # Código privado de la aplicación
-│   ├── domains/              # Dominios de negocio
-│   │   ├── twitter/          # Dominio principal
-│   │   │   ├── tweet/        # Subdominio de tweets
-│   │   │   ├── follow/       # Subdominio de follows
-│   │   │   ├── timeline/     # Subdominio de timeline
-│   │   │   └── user/         # Subdominio de usuarios
-│   └── adapters/             # Adaptadores para infraestructura
+│   ├── adapters/             # Adaptadores para infraestructura
+│   │   ├── queue/           # Adaptadores para colas de mensajes
+│   │   ├── redis/           # Adaptador para Redis
+│   │   └── sns/             # Adaptadores para SNS
+│   └── domains/              # Dominios de negocio
+│       └── twitter/          # Dominio principal
+│           ├── follow/        # Subdominio de seguimientos
+│           ├── timeline/      # Subdominio de timeline
+│           └── tweet/         # Subdominio de tweets
 ├── pkg/                      # Código público reutilizable
 │   ├── config/               # Gestión de configuración
 │   ├── errors/               # Manejo de errores
 │   └── logger/               # Sistema de logging
-├── docker/                   # Archivos Docker
-└── localstack/               # Configuración de servicios locales
+├── docker/                   # Archivos Docker y scripts
+├── localstack/               # Configuración de servicios locales
+├── docker-compose.yml        # Definición de servicios Docker
+└── setup-local.sh           # Script para configuración local
+```
+
+Cada dominio (tweet, follow, timeline) sigue una estructura interna consistente:
+
+```
+dominio/
+├── domain/           # Definiciones y entidades del dominio
+├── repository/       # Interfaces e implementaciones de repositorios
+├── service/          # Servicios del dominio
+└── usecases/         # Casos de uso para operaciones específicas
+    ├── usecase1/     # Implementación de caso de uso
+    │   ├── interfaces.go # Interfaces requeridas
+    │   ├── provide.go   # Proveedor de dependencias
+    │   └── exec.go      # Implementación del caso de uso
+    └── usecase2/
 ```
 
 ## Ejecución en modo desarrollo
