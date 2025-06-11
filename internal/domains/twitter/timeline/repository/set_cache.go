@@ -11,7 +11,7 @@ func (r *TimelineRepository) SetCache(ctx context.Context, key string, value []b
 	r.logger.Debug("Guardando datos en caché",
 		zap.String("key", key))
 
-	ttl := 5 * time.Minute
+	ttl := 1 * time.Minute
 
 	err := r.redisClient.Set(ctx, key, value, ttl)
 	if err != nil {

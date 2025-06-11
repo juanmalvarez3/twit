@@ -10,6 +10,7 @@ import (
 	dmnfollow "github.com/juanmalvarez3/twit/internal/domains/twitter/follow/domain"
 	"github.com/juanmalvarez3/twit/internal/domains/twitter/follow/repository/daos"
 	"go.uber.org/zap"
+	"strings"
 )
 
 func (r *Repository) Get(ctx context.Context, followID string) (dmnfollow.Follow, error) {
@@ -18,15 +19,36 @@ func (r *Repository) Get(ctx context.Context, followID string) (dmnfollow.Follow
 		zap.String("table_name", r.tableName),
 	)
 
+	parts := strings.Split(followID, "-")
+	if len(parts) < 3 {
+		err := fmt.Errorf("formato de ID de follow inválido: %s", followID)
+		r.logger.Error("Error al parsear ID de follow",
+			zap.String("follow_id", followID),
+			zap.Error(err),
+		)
+		return dmnfollow.Follow{}, err
+	}
+
+	followerID := parts[1]
+	followedID := strings.Join(parts[2:], "-")
+
+	r.logger.Debug("Consultando follow con claves primarias",
+		zap.String("follower_id", followerID),
+		zap.String("followed_id", followedID),
+	)
+
 	result, err := r.dynamoDBClient.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.tableName),
 		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: followID},
+			"follower_id": &types.AttributeValueMemberS{Value: followerID},
+			"followed_id": &types.AttributeValueMemberS{Value: followedID},
 		},
 	})
 	if err != nil {
 		r.logger.Error("Error al obtener follow de DynamoDB",
 			zap.String("follow_id", followID),
+			zap.String("follower_id", followerID),
+			zap.String("followed_id", followedID),
 			zap.Error(err),
 		)
 		return dmnfollow.Follow{}, err
@@ -35,6 +57,8 @@ func (r *Repository) Get(ctx context.Context, followID string) (dmnfollow.Follow
 	if result.Item == nil {
 		r.logger.Warn("Follow no encontrado",
 			zap.String("follow_id", followID),
+			zap.String("follower_id", followerID),
+			zap.String("followed_id", followedID),
 		)
 		return dmnfollow.Follow{}, fmt.Errorf("follow with ID %s not found", followID)
 	}

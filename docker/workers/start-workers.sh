@@ -34,9 +34,9 @@ if [ $RETRY -eq $MAX_RETRIES ]; then
 fi
 
 # Iniciar workers en background
-echo "Iniciando worker: orchestrate-fanout"
-/bin/orchestratefanout &
-ORCHESTRATE_PID=$!
+#echo "Iniciando worker: orchestrate-fanout"
+#/bin/orchestratefanout &
+#ORCHESTRATE_PID=$!
 
 echo "Iniciando worker: update-timeline"
 /bin/update-timeline &
@@ -58,16 +58,16 @@ echo "Iniciando worker: populate-cache"
 /bin/populate-cache &
 POPULATE_CACHE_PID=$!
 
-# echo "Iniciando worker: rebuild-timeline"
-# /bin/rebuild-timeline &
-# REBUILD_TIMELINE_PID=$!
+echo "Iniciando worker: rebuild-timeline"
+/bin/rebuild-timeline &
+REBUILD_TIMELINE_PID=$!
 
 echo "Todos los workers iniciados correctamente."
 
 # Función para manejar señales
 handle_signal() {
     echo "Recibida señal para terminar, deteniendo workers..."
-    kill $ORCHESTRATE_PID $UPDATE_TIMELINE_PID $TWEETS_PID $FOLLOWS_PID $POPULATE_CACHE_PID 2>/dev/null || true
+    kill $UPDATE_TIMELINE_PID $REBUILD_TIMELINE_PID $TWEETS_PID $FOLLOWS_PID $POPULATE_CACHE_PID 2>/dev/null || true
     wait
     echo "Todos los workers detenidos."
     exit 0

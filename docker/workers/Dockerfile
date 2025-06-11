@@ -23,7 +23,7 @@ RUN mkdir -p /bin/workers
 
 # Compilación paralela de workers SQS - mucho más rápido
 RUN echo "Compilando workers en paralelo..." && \
-    (CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/workers/orchestratefanout ./cmd/twitter/sqs/orchestratefanout/main.go & \
+    (CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/workers/rebuildtimeline ./cmd/twitter/sqs/rebuildtimeline/main.go & \
      CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/workers/updatetimeline ./cmd/twitter/sqs/updatetimeline/main.go & \
      CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/workers/populatecache ./cmd/twitter/sqs/populatecache/main.go & \
      wait)
@@ -41,7 +41,7 @@ FROM alpine:latest
 RUN apk --no-cache add ca-certificates tzdata curl
 
 # Copiar los binarios compilados desde el builder (en una sola capa)
-COPY --from=builder /bin/workers/orchestratefanout /bin/orchestratefanout
+COPY --from=builder /bin/workers/rebuildtimeline /bin/rebuild-timeline
 COPY --from=builder /bin/workers/updatetimeline /bin/update-timeline
 COPY --from=builder /bin/workers/tweets /bin/tweets
 COPY --from=builder /bin/workers/follows /bin/follows

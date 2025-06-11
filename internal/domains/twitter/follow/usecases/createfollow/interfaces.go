@@ -8,6 +8,7 @@ import (
 
 type Service interface {
 	Create(ctx context.Context, follow dmnfollow.Follow) error
+	Get(ctx context.Context, followID string) (dmnfollow.Follow, error)
 }
 
 type Publisher interface {
